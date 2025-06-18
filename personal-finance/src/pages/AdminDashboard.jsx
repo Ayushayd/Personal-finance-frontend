@@ -65,7 +65,9 @@ export default function AdminDashboard() {
     }
   });
 
-  const expenseData = users.map((user) => {
+  const expenseData = users
+  .filter((user) => user.role !== "ADMIN") // exclude admins
+  .map((user) => {
     const userExpenses = expenses.filter((e) => e.userId === user.id);
     const userIncomes = incomes.filter((i) => i.userId === user.id);
 
@@ -85,6 +87,7 @@ export default function AdminDashboard() {
       Exceeded: convertedExpenses > convertedLimit,
     };
   });
+
 
   const getCurrencySymbol = (code) => {
     switch (code) {
