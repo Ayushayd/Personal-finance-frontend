@@ -66,5 +66,5 @@ export const convertCurrency = (from, to, amount) =>
   });
 
 // Gemini AI Assistant
-export const askGemini = (username, prompt) =>
-  API.post("/ai/insight", { username, prompt });
+export const askGemini = (username, prompt, role) =>
+  API.post("/ai/insight", { username, prompt, role });

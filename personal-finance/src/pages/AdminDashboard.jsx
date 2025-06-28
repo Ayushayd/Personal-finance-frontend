@@ -14,6 +14,7 @@ import {
   Cell,
 } from "recharts";
 import CurrencySelector from "./CurrencySelector";
+import GeminiAssistant from "./GeminiAssistant";
 
 export default function AdminDashboard() {
   const { logout } = useAuth();
@@ -39,8 +40,14 @@ export default function AdminDashboard() {
         setExpenses(expensesRes.data);
         setIncomes(incomesRes.data);
 
-        const rawExpenses = expensesRes.data.reduce((sum, e) => sum + e.amount, 0);
-        const rawIncomes = incomesRes.data.reduce((sum, i) => sum + i.amount, 0);
+        const rawExpenses = expensesRes.data.reduce(
+          (sum, e) => sum + e.amount,
+          0
+        );
+        const rawIncomes = incomesRes.data.reduce(
+          (sum, i) => sum + i.amount,
+          0
+        );
 
         setTotalExpenses(rawExpenses);
         setTotalIncomes(rawIncomes);
@@ -60,43 +67,58 @@ export default function AdminDashboard() {
   // Map: userId → monthly limit
   const userLimitMap = {};
   incomes.forEach((i) => {
-    if (i.userId && i.monthlyLimit !== undefined && !(i.userId in userLimitMap)) {
+    if (
+      i.userId &&
+      i.monthlyLimit !== undefined &&
+      !(i.userId in userLimitMap)
+    ) {
       userLimitMap[i.userId] = i.monthlyLimit;
     }
   });
 
   const expenseData = users
-  .filter((user) => user.role !== "ADMIN") // exclude admins
-  .map((user) => {
-    const userExpenses = expenses.filter((e) => e.userId === user.id);
-    const userIncomes = incomes.filter((i) => i.userId === user.id);
+    .filter((user) => user.role !== "ADMIN") // exclude admins
+    .map((user) => {
+      const userExpenses = expenses.filter((e) => e.userId === user.id);
+      const userIncomes = incomes.filter((i) => i.userId === user.id);
 
-    const totalUserExpenses = userExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalUserIncomes = userIncomes.reduce((sum, i) => sum + i.amount, 0);
+      const totalUserExpenses = userExpenses.reduce(
+        (sum, e) => sum + e.amount,
+        0
+      );
+      const totalUserIncomes = userIncomes.reduce(
+        (sum, i) => sum + i.amount,
+        0
+      );
 
-    const monthlyLimitRaw = userLimitMap[user.id] ?? 0;
-    const convertedLimit = monthlyLimitRaw * rate;
-    const convertedExpenses = totalUserExpenses * rate;
-    const convertedIncomes = totalUserIncomes * rate;
+      const monthlyLimitRaw = userLimitMap[user.id] ?? 0;
+      const convertedLimit = monthlyLimitRaw * rate;
+      const convertedExpenses = totalUserExpenses * rate;
+      const convertedIncomes = totalUserIncomes * rate;
 
-    return {
-      name: user.username,
-      Expenses: parseFloat(convertedExpenses.toFixed(2)),
-      Incomes: parseFloat(convertedIncomes.toFixed(2)),
-      Limit: parseFloat(convertedLimit.toFixed(2)),
-      Exceeded: convertedExpenses > convertedLimit,
-    };
-  });
-
+      return {
+        name: user.username,
+        Expenses: parseFloat(convertedExpenses.toFixed(2)),
+        Incomes: parseFloat(convertedIncomes.toFixed(2)),
+        Limit: parseFloat(convertedLimit.toFixed(2)),
+        Exceeded: convertedExpenses > convertedLimit,
+      };
+    });
 
   const getCurrencySymbol = (code) => {
     switch (code) {
-      case "INR": return "₹";
-      case "USD": return "$";
-      case "EUR": return "€";
-      case "GBP": return "£";
-      case "JPY": return "¥";
-      default: return code + " ";
+      case "INR":
+        return "₹";
+      case "USD":
+        return "$";
+      case "EUR":
+        return "€";
+      case "GBP":
+        return "£";
+      case "JPY":
+        return "¥";
+      default:
+        return code + " ";
     }
   };
 
@@ -126,7 +148,9 @@ export default function AdminDashboard() {
           <p className="text-2xl font-bold text-indigo-600">{users.length}</p>
         </div>
         <div className="bg-white rounded-xl shadow-md p-6 text-center">
-          <h2 className="text-lg font-semibold text-gray-600">Total Expenses</h2>
+          <h2 className="text-lg font-semibold text-gray-600">
+            Total Expenses
+          </h2>
           <p className="text-2xl font-bold text-red-600">
             {symbol}
             {!isNaN(totalExpenses * rate)
@@ -158,13 +182,14 @@ export default function AdminDashboard() {
             <XAxis dataKey="name" />
             <YAxis />
             <Tooltip
-            formatter={(value, name, props) => {
-              const fullData = props.payload?.[0]?.payload;
-              const extra = name === "Expenses" && fullData?.Exceeded
-                ? " (Limit Exceeded)"
-                : "";
-              return [`${symbol}${value}${extra}`, name];
-            }}
+              formatter={(value, name, props) => {
+                const fullData = props.payload?.[0]?.payload;
+                const extra =
+                  name === "Expenses" && fullData?.Exceeded
+                    ? " (Limit Exceeded)"
+                    : "";
+                return [`${symbol}${value}${extra}`, name];
+              }}
             />
             <Legend />
             <Bar dataKey="Expenses">
@@ -207,6 +232,9 @@ export default function AdminDashboard() {
           Financial Report
         </button>
       </div>
+
+      {/* Gemini Assistant */}
+      <GeminiAssistant />
     </div>
   );
 }
