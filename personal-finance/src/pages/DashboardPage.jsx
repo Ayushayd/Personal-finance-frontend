@@ -19,6 +19,7 @@ import {
 } from "recharts";
 import { useCurrency } from "../context/CurrencyContext";
 import CurrencySelector from "../pages/CurrencySelector";
+import GeminiAssistant from "../pages/GeminiAssistant";
 
 export default function DashboardPage() {
   const { logout } = useAuth();
@@ -37,32 +38,48 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchSummaryAndLimit = async () => {
       try {
-        const [expensesRes, incomesRes, limitRes] = await Promise.all([
+        const [expensesRes, incomesRes] = await Promise.all([
           getExpenses(),
           getIncomes(),
-          getExpenseLimit(),
         ]);
 
-        const totalExpenses = expensesRes.data.reduce((sum, e) => sum + e.amount, 0);
-        const totalIncomes = incomesRes.data.reduce((sum, i) => sum + i.amount, 0);
+        const totalExpenses = expensesRes.data.reduce(
+          (sum, e) => sum + e.amount,
+          0
+        );
+        const totalIncomes = incomesRes.data.reduce(
+          (sum, i) => sum + i.amount,
+          0
+        );
         const netSavings = totalIncomes - totalExpenses;
 
         setSummary({ totalExpenses, totalIncomes, netSavings });
-        const monthlyLimit = limitRes?.data?.monthlyLimit ?? 0;
-        setMonthlyLimit(monthlyLimit);
 
+        try {
+          const limitRes = await getExpenseLimit();
+          const monthlyLimit = limitRes?.data?.monthlyLimit ?? null;
+          setMonthlyLimit(monthlyLimit);
+        } catch (limitErr) {
+          if (limitErr.response?.status === 404) {
+            setMonthlyLimit(null); // Gracefully handle no limit set
+          } else {
+            console.error("Error fetching expense limit:", limitErr);
+          }
+        }
       } catch (error) {
-        console.error("Error fetching summary or limit:", error);
+        console.error("Error fetching summary:", error);
       }
     };
 
     const fetchChartData = async () => {
       try {
         const res = await getUserChartData();
-        const data = Object.entries(res.data.monthlyExpense).map(([month, amount]) => ({
-          month,
-          amount,
-        }));
+        const data = Object.entries(res.data.monthlyExpense).map(
+          ([month, amount]) => ({
+            month,
+            amount,
+          })
+        );
         setChartData(data);
       } catch (error) {
         console.error("Error fetching chart data:", error);
@@ -82,11 +99,13 @@ export default function DashboardPage() {
 
   const chartDataWithLimit = chartData.map((item) => {
     const convertedAmount = item.amount * rate;
+    const isOverLimit =
+      monthlyLimit !== null && convertedAmount >= monthlyLimit * rate;
     return {
       ...item,
       amount: convertedAmount,
-      limitReached: monthlyLimit && convertedAmount >= monthlyLimit * rate,
-      fill: monthlyLimit && convertedAmount >= monthlyLimit * rate ? "#f87171" : "#60a5fa",
+      limitReached: isOverLimit,
+      fill: isOverLimit ? "#f87171" : "#60a5fa",
     };
   });
 
@@ -108,7 +127,9 @@ export default function DashboardPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-md p-6 text-center">
-          <h2 className="text-lg font-semibold text-gray-600">Total Expenses</h2>
+          <h2 className="text-lg font-semibold text-gray-600">
+            Total Expenses
+          </h2>
           <p className="text-2xl font-bold text-red-500">
             {currency} {convert(summary.totalExpenses)}
           </p>
@@ -137,7 +158,9 @@ export default function DashboardPage() {
       <div className="mt-10">
         <h2 className="text-xl font-semibold mb-4">
           Monthly Expenses Chart{" "}
-          {monthlyLimit && `(Limit: ${currency} ${convert(monthlyLimit)})`}
+          {monthlyLimit !== null
+            ? `(Limit: ${currency} ${convert(monthlyLimit)})`
+            : `(No Limit Set)`}
         </h2>
         {chartData.length > 0 ? (
           <ResponsiveContainer width="100%" height={300}>
@@ -168,25 +191,28 @@ export default function DashboardPage() {
 
       {/* Navigation */}
       <div className="mt-8 flex flex-col md:flex-row gap-4">
-  <button
-    onClick={() => navigate("/expenses")}
-    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-center"
-  >
-    Manage Expenses
-  </button>
-  <button
-    onClick={() => navigate("/incomes")}
-    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-center"
-  >
-    Manage Incomes
-  </button>
-  <button
-    onClick={() => navigate("/report")}
-    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-center"
-  >
-    View Reports
-  </button>
-</div>
+        <button
+          onClick={() => navigate("/expenses")}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-center"
+        >
+          Manage Expenses
+        </button>
+        <button
+          onClick={() => navigate("/incomes")}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-center"
+        >
+          Manage Incomes
+        </button>
+        <button
+          onClick={() => navigate("/report")}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-center"
+        >
+          View Reports
+        </button>
+      </div>
+
+      {/* Gemini Assistant */}
+      <GeminiAssistant />
     </div>
   );
 }

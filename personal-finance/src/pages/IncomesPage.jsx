@@ -17,23 +17,35 @@ export default function IncomesPage() {
   const [incomes, setIncomes] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [form, setForm] = useState({ source: "", amount: "", date: "" });
-  const [editForm, setEditForm] = useState({ source: "", amount: "", date: "" });
+  const [editForm, setEditForm] = useState({
+    source: "",
+    amount: "",
+    date: "",
+  });
   const [editingId, setEditingId] = useState(null);
-  const [expenseLimit, setLimit] = useState(null);
+  const [expenseLimit, setLimit] = useState({ monthlyLimit: 0 });
   const [newLimit, setNewLimit] = useState("");
 
   const fetchIncomes = async () => {
     try {
-      const [incomeRes, limitRes, expenseRes] = await Promise.all([
+      const [incomeRes, expenseRes] = await Promise.all([
         getIncomes(),
-        getExpenseLimit(),
         getExpenses(),
       ]);
-      setIncomes(incomeRes.data);
-      setLimit(limitRes.data);
-      setExpenses(expenseRes.data);
+      setIncomes(incomeRes?.data || []);
+      setExpenses(expenseRes?.data || []);
     } catch (err) {
-      toast.error("Failed to fetch incomes, expenses, or limit.");
+      toast.error("Failed to fetch incomes or expenses.");
+      setIncomes([]);
+      setExpenses([]);
+    }
+
+    try {
+      const limitRes = await getExpenseLimit();
+      setLimit(limitRes?.data || { monthlyLimit: 0 });
+    } catch (err) {
+      // Gracefully handle no limit case (e.g., new user)
+      setLimit({ monthlyLimit: 0 });
     }
   };
 
@@ -41,7 +53,10 @@ export default function IncomesPage() {
     fetchIncomes();
   }, []);
 
-  const totalExpense = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
+  const totalExpense = expenses.reduce(
+    (sum, exp) => sum + Number(exp.amount),
+    0
+  );
   const limitValue = expenseLimit?.monthlyLimit || 1;
   const progressPercent = Math.min((totalExpense / limitValue) * 100, 100);
 
@@ -67,7 +82,11 @@ export default function IncomesPage() {
 
   const handleEdit = (income) => {
     setEditingId(income.id);
-    setEditForm({ source: income.source, amount: income.amount, date: income.date });
+    setEditForm({
+      source: income.source,
+      amount: income.amount,
+      date: income.date,
+    });
   };
 
   const handleEditChange = (e) => {
@@ -140,7 +159,10 @@ export default function IncomesPage() {
 
       {/* Set Limit Section */}
       <div className="mb-6 p-4 bg-gray-100 rounded shadow">
-        <form onSubmit={handleSetLimit} className="flex flex-col sm:flex-row sm:items-end gap-4">
+        <form
+          onSubmit={handleSetLimit}
+          className="flex flex-col sm:flex-row sm:items-end gap-4"
+        >
           <div className="flex-1">
             <label className="block text-gray-700 text-sm font-bold mb-1">
               Set Monthly Expense Limit
@@ -164,9 +186,14 @@ export default function IncomesPage() {
       </div>
 
       {/* Add Income Form */}
-      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+      >
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Source</label>
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Source
+          </label>
           <input
             name="source"
             value={form.source}
@@ -176,7 +203,9 @@ export default function IncomesPage() {
           />
         </div>
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Amount</label>
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Amount
+          </label>
           <input
             type="number"
             name="amount"
@@ -187,7 +216,9 @@ export default function IncomesPage() {
           />
         </div>
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Date</label>
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Date
+          </label>
           <input
             type="date"
             name="date"

@@ -8,22 +8,34 @@ import {
   getExpensesByCategory,
   updateExpense,
 } from "../api/api";
-import { useCurrency } from "../context/CurrencyContext"; // ✅ Currency context
+import { useCurrency } from "../context/CurrencyContext";
 
 export default function ExpensesPage() {
   const navigate = useNavigate();
   const { token } = useAuth();
-  const { currency, rate } = useCurrency(); // ✅ Use currency & rate
+  const { currency, rate } = useCurrency();
 
   const [expenses, setExpenses] = useState([]);
-  const [form, setForm] = useState({ category: "", amount: "", date: "", description: "" });
+  const [categories, setCategories] = useState([]);
+  const [form, setForm] = useState({
+    category: "",
+    newCategory: "",
+    amount: "",
+    date: "",
+    description: "",
+  });
   const [categoryFilter, setCategoryFilter] = useState("");
   const [editingId, setEditingId] = useState(null);
 
   const fetchExpenses = async () => {
     try {
       const res = await getExpenses();
-      setExpenses(res.data);
+      const allExpenses = res.data;
+      setExpenses(allExpenses);
+      const uniqueCategories = [
+        ...new Set(allExpenses.map((exp) => exp.category)),
+      ];
+      setCategories(uniqueCategories);
     } catch (err) {
       console.error("Failed to fetch expenses", err);
     }
@@ -35,10 +47,20 @@ export default function ExpensesPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const finalCategory =
+      form.category === "__new__" ? form.newCategory.trim() : form.category;
+
+    if (!finalCategory) {
+      alert("Please provide a valid category");
+      return;
+    }
+
     try {
       const expenseData = {
-        ...form,
-        amount: parseFloat(form.amount) / rate, // ✅ Store amount in INR
+        category: finalCategory,
+        amount: parseFloat(form.amount) / rate, // Store in INR
+        date: form.date,
+        description: form.description,
       };
 
       if (editingId) {
@@ -48,7 +70,13 @@ export default function ExpensesPage() {
         await addExpense(expenseData);
       }
 
-      setForm({ category: "", amount: "", date: "", description: "" });
+      setForm({
+        category: "",
+        newCategory: "",
+        amount: "",
+        date: "",
+        description: "",
+      });
       fetchExpenses();
     } catch (err) {
       console.error("Failed to submit expense", err);
@@ -77,8 +105,13 @@ export default function ExpensesPage() {
   const startEdit = (expense) => {
     setEditingId(expense.id);
     setForm({
-      category: expense.category,
-      amount: (expense.amount * rate).toFixed(2), // ✅ Convert to selected currency
+      category: categories.includes(expense.category)
+        ? expense.category
+        : "__new__",
+      newCategory: categories.includes(expense.category)
+        ? ""
+        : expense.category,
+      amount: (expense.amount * rate).toFixed(2),
       date: expense.date,
       description: expense.description,
     });
@@ -86,12 +119,18 @@ export default function ExpensesPage() {
 
   const getCurrencySymbol = (code) => {
     switch (code) {
-      case "INR": return "₹";
-      case "USD": return "$";
-      case "EUR": return "€";
-      case "GBP": return "£";
-      case "JPY": return "¥";
-      default: return "";
+      case "INR":
+        return "₹";
+      case "USD":
+        return "$";
+      case "EUR":
+        return "€";
+      case "GBP":
+        return "£";
+      case "JPY":
+        return "¥";
+      default:
+        return "";
     }
   };
 
@@ -112,15 +151,20 @@ export default function ExpensesPage() {
         ← Back to Dashboard
       </button>
 
-      {/* Filter Section */}
+      {/* Filter */}
       <div className="mb-6 flex gap-4">
-        <input
-          type="text"
-          placeholder="Filter by Category"
+        <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
           className="border rounded px-3 py-2"
-        />
+        >
+          <option value="">-- Select Category --</option>
+          {categories.map((cat, idx) => (
+            <option key={idx} value={cat}>
+              {cat}
+            </option>
+          ))}
+        </select>
         <button
           onClick={handleCategorySearch}
           className="bg-blue-600 text-white px-4 py-2 rounded"
@@ -139,56 +183,105 @@ export default function ExpensesPage() {
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4"
+      >
+        {/* Category Select */}
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Category</label>
-          <input
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Category
+          </label>
+          <select
             name="category"
             value={form.category}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+            className="shadow border rounded w-full py-2 px-3 text-gray-700"
             required
-          />
+          >
+            <option value="">-- Select Category --</option>
+            <option value="__new__">Add New Category</option>
+            {categories.map((cat, idx) => (
+              <option key={idx} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
         </div>
+
+        {/* If New Category Selected */}
+        {form.category === "__new__" && (
+          <div className="mb-4">
+            <label className="block text-gray-700 text-sm font-bold mb-2">
+              New Category
+            </label>
+            <input
+              type="text"
+              name="newCategory"
+              value={form.newCategory}
+              onChange={handleChange}
+              className="shadow border rounded w-full py-2 px-3 text-gray-700"
+              placeholder="Enter new category"
+              required
+            />
+          </div>
+        )}
+
+        {/* Amount */}
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Amount ({currency})</label>
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Amount ({currency})
+          </label>
           <input
             type="number"
             step="0.01"
             name="amount"
             value={form.amount}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+            className="shadow border rounded w-full py-2 px-3 text-gray-700"
             required
           />
         </div>
+
+        {/* Date */}
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Date</label>
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Date
+          </label>
           <input
             type="date"
             name="date"
             value={form.date}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+            className="shadow border rounded w-full py-2 px-3 text-gray-700"
             required
           />
         </div>
+
+        {/* Description */}
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-bold mb-2">Description</label>
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Description
+          </label>
           <input
+            type="text"
             name="description"
             value={form.description}
             onChange={handleChange}
-            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700"
+            className="shadow border rounded w-full py-2 px-3 text-gray-700"
             required
           />
         </div>
-        <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+
+        <button
+          type="submit"
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
           {editingId ? "Update Expense" : "Add Expense"}
         </button>
       </form>
 
-      {/* Table */}
+      {/* Expenses Table */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white shadow-md rounded">
           <thead>
@@ -211,8 +304,18 @@ export default function ExpensesPage() {
                 <td className="py-2 px-4 border">{exp.date}</td>
                 <td className="py-2 px-4 border">{exp.description}</td>
                 <td className="py-2 px-4 border">
-                  <button onClick={() => startEdit(exp)} className="text-blue-500 hover:underline mr-2">Edit</button>
-                  <button onClick={() => handleDelete(exp.id)} className="text-red-500 hover:underline">Delete</button>
+                  <button
+                    onClick={() => startEdit(exp)}
+                    className="text-blue-500 hover:underline mr-2"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleDelete(exp.id)}
+                    className="text-red-500 hover:underline"
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
             ))}
