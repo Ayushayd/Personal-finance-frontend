@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "http://localhost:8082/api",
+  baseURL: "https://finance-system1-production.up.railway.app/api",
 });
 
 // Attach token to all requests if user is logged in
